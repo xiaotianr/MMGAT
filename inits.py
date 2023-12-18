@@ -3,10 +3,10 @@ import tensorflow as tf
 
 
 
-def normal(shape, name =None):
+def normal(shape, name =None,stdv=0.2):
 	n_input = shape[0]
 	n_output = shape[1]
-	tmp = tf.random_normal(shape, stddev = 0.1)
+	tmp = tf.random_normal(shape, stddev = stdv)
 	return tf.Variable(tmp, name = name)
 
 def uniform(shape, scale = 0, name=None):

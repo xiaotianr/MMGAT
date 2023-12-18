@@ -30,6 +30,8 @@ configs.gpu_options.per_process_gpu_memory_fraction = 0.2
 # config = tf.compat.v1.ConfigProto()
 # config.gpu_options.allow_growth = True
 #session = tf.Session(config=config)
+#######################################
+##########Load the three adjacy matrices i.e similarity, coexsiting and inclusive matrices################
 def loadAdjs(tfids,Kmers):	
     sizes = [Kmers]
     ext = ".npz"
@@ -97,43 +99,49 @@ def one_task(name,Kmers,adj_coo, adj_sim, adj_inclu, idx_train, idx_val, idx_tes
     def evaluate(Ect, Est, Winclu, Wcoo, Wsim, label, mask, placeholders):
         feed_dict_val = construct_feed_dict(
             Ect, Est,Winclu, Wcoo, Wsim, label, mask, placeholders)
-        loss,preds,labels, seq_hidden, kmer_hidden = sess.run([model.loss, model.preds, model.labels,model.seq_hidden, model.kmer_hidden], feed_dict=feed_dict_val)
-        return loss,preds,labels,seq_hidden, kmer_hidden
+        loss,preds,labels, seq_hidden, kmer_hidden_sim,kmer_hidden_co,attention_sim,attention_co,kmer_attention_sim,kmer_attention_co = sess.run([model.loss, model.preds, model.labels,model.seq_hidden, model.kmer_hidden_sim,model.kmer_hidden_co,model.attention_sim,model.attention_co,model.kmer_attention_sim,model.kmer_attention_co], feed_dict=feed_dict_val)
+        return loss,preds,labels,seq_hidden, kmer_hidden_sim,kmer_hidden_co,attention_sim,attention_co,kmer_attention_sim,kmer_attention_co
     sess.run(tf.global_variables_initializer())
     # train model
     feed_dict = construct_feed_dict(Ect, Est, Winclu, Wcoo, Wsim, labels, train_mask, placeholders)
-    feed_dict.update({placeholders['dropout']:0.6})
+    feed_dict.update({placeholders['dropout']:options['dropout']})
     for epoch in tqdm(range(options['epochs']+1)):
-        sess.run([model.opt_op, model.loss, model.preds,model.seq_hidden, model.kmer_hidden], feed_dict=feed_dict)
+        sess.run([model.opt_op, model.loss, model.preds,model.seq_hidden, model.kmer_hidden_sim,model.kmer_hidden_co,model.attention_sim,model.attention_co], feed_dict=feed_dict)
         if epoch % 2 == 0:
-            val_loss, preds, labels,_,_= evaluate(Ect, Est,Winclu, Wcoo, Wsim, labels, val_mask, placeholders)
+            val_loss, preds, labels,_,_,_,_,_,_,_= evaluate(Ect, Est,Winclu, Wcoo, Wsim, labels, val_mask, placeholders)
             # print(preds)
             val_auc,fpr,tpr,thresholds = com_auc(labels,preds,idx_val)
             print("epoch %d: valid loss = %f, val_auc = %f" %(epoch, val_loss, val_auc))
-        if epoch == options['epochs']:
-            test_loss, preds, labels,seq_hidden, kmer_hidden= evaluate(Ect, Est,Winclu, Wcoo, Wsim, labels, test_mask, placeholders)
-            test_auc,fpr,tpr,thresholds = com_auc(labels, preds,idx_test)
-            print("epoch %d: test_auc = %f" %(epoch, test_auc))
-            path = './download/'+name 
-            if not os.path.exists(path):
-                os.mkdir(path)
-            path = './save/'+name+'/TFBS'
-            if not os.path.exists(path):
-                os.mkdir(path)
-            seq_path = path+'/'+name+'_encode'+str(Kmers)+'_seq'
-            np.save(seq_path, seq_hidden[-1])
-            kmer_path = path+'/'+name+'_encode'+str(Kmers)+'_kmer'
-            np.save(kmer_path, kmer_hidden[-1])
-
-
-            path = './save/'+name+'/output'
-            if not os.path.exists(path):
-                os.mkdir(path)
             
-            out_test=path+'/'+name+'_encode_test.txt'
-            np.savetxt(out_test,[np.squeeze(labels[idx_test,:]), np.squeeze(preds[idx_test,:])])
-            out_val=path+'/'+name+'_encode_val.txt'
-            np.savetxt(out_val,[np.squeeze(labels[idx_val,:]), np.squeeze(preds[idx_val,:])])
+        test_loss, preds, labels,seq_hidden, kmer_hidden_sim,kmer_hidden_co,attention_sim,attention_co,kmer_attention_sim,kmer_attention_co= evaluate(Ect, Est,Winclu, Wcoo, Wsim, labels, test_mask, placeholders)
+        test_auc,fpr,tpr,thresholds = com_auc(labels, preds,idx_test)
+        print("epoch %d: test_auc = %f" %(epoch, test_auc))
+        path = './download/'+name 
+        if not os.path.exists(path):
+            os.mkdir(path)
+        path = './save/'+name+'/TFBS'
+        if not os.path.exists(path):
+            os.mkdir(path)
+        seq_path = path+'/'+name+'_encode'+str(Kmers)+'_seq'
+        np.save(seq_path, seq_hidden[-1])
+        kmer_path = path+'/'+name+'_encode'+str(Kmers)+'_kmer_sim'
+        np.save(kmer_path, kmer_hidden_sim[-1])
+        kmer_path = path+'/'+name+'_encode'+str(Kmers)+'_kmer_co'
+        np.save(kmer_path, kmer_hidden_co[-1])
+        kmer_path = path+'/'+name+'_encode'+str(Kmers)+'_attention_sim'
+        np.save(kmer_path, kmer_attention_sim[-1])
+        kmer_path = path+'/'+name+'_encode'+str(Kmers)+'_kmer_attention_co'
+        np.save(kmer_path, kmer_attention_co[-1])
+
+
+        path = './save/'+name+'/output'
+        if not os.path.exists(path):
+            os.mkdir(path)
+        
+        out_test=path+'/'+name+'_encode_test.txt'
+        np.savetxt(out_test,[np.squeeze(labels[idx_test,:]), np.squeeze(preds[idx_test,:])])
+        out_val=path+'/'+name+'_encode_val.txt'
+        np.savetxt(out_val,[np.squeeze(labels[idx_val,:]), np.squeeze(preds[idx_val,:])])
 ###################################################################################
 def motif_task(args):
     dataset = args.dataset
@@ -141,15 +149,14 @@ def motif_task(args):
     # Settings
     options = {}
     options['model'] = 'gat'
-    options['epochs'] = 100
-    options['dropout'] = 0.6
+    options['epochs'] = 300
+    options['dropout'] = 0.3
     options['weight_decay'] = 0.001
-    options['hidden1'] = 300
-    options['learning_rate'] = 0.001 
+    options['hidden1'] = 100
+    options['learning_rate'] = 0.02 
     ########################
     # tfid = args.dataset
     tfid = args.hash
-    local_weights = [0.1]
     adj_inclu, adj_sim, adj_coo, labels = loadAdjs(tfid,Kmers)
     n = len(labels)
     #########################################

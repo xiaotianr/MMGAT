@@ -4,9 +4,19 @@ import scipy.sparse as sp
 from scipy.sparse.linalg.eigen.arpack import eigsh
 import pandas as pd
 import re
-# from matplotlib import pyplot as plt
+from measure_code import com_measure
 from sklearn import metrics
-## compute aAUC
+def Areas(data):
+    aa=0
+    for i in range(len(data)-1):
+        aa+=data[i]*data[i+1]*np.sin(np.pi/180*45)/2
+    return aa
+def com_aemr(test_l,pred,mask):
+	test_l = test_l[mask,:]
+	pred = pred[mask,:]
+	cres=com_measure(test_l,pred)
+	aemr=Areas(cres)
+	return aemr
 def com_auc(test_l,pred,mask):
     ##real value，predicted value
 	# mask=1>=mask

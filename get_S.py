@@ -4,7 +4,7 @@ import re
 
 ########Get S to construct the heterogeous graph###################
 parser = argparse.ArgumentParser(description="Process ATAC-seq data.")
-parser.add_argument('--hash', default='fbd7c1da229c4007bf2d7b8a1ba1cf03',type=str,help='The The hash of the task')
+parser.add_argument('--hash', default='gse',type=str,help='The The hash of the task')
 parser.add_argument('--path', default='./save/',type=str,help='Path to the bed file') #contain hg38.fa GSE.bed GSE.bam  path/
 parser.add_argument('--genome', default='hg38',type=str,help='The hash of the task')
 parser.add_argument('--peak_flank',type=int, default=50, help='peaks length')
@@ -60,7 +60,7 @@ def getchrom_index(args):
     file0.close()
     file1.close()
     for k in range(2):
-        cmd = 'bedtools getfasta -fi ./genome/'+genome+'.fa -bed ' + test_val[k] + ' -fo ' + test_val_fa[k]
+        cmd = 'bedtools getfasta -fi /home/ubuntu/server/genome/'+genome+'.fa -bed ' + test_val[k] + ' -fo ' + test_val_fa[k]
         os.system(cmd)
         os.remove(test_val[k])
 
